@@ -1,6 +1,9 @@
 run_proc <- function() {
+	################################# READING DATA INTO THE MEMORY ...
 	DATA <- read.csv(unz("activity.zip", "activity.csv"))
-	#head(DATA, 5);
+
+	
+	################################# STEPS PER DAY ...
 	
 	days = split(DATA, DATA$date);
 	steps_per_day = unlist(lapply(days, steps_per_day_fun));
@@ -13,12 +16,10 @@ run_proc <- function() {
 	print(sprintf("Mean steps per day : %f", mean(steps_per_day)));
 	print(sprintf("Median steps per day : %f", median(steps_per_day)));
 	
-	avg_by_interval = vector(mode = 'numeric', length=length(days[[1]]$interval) );
-	for (k in 1:length(avg_by_interval)) {
-		avg_by_interval[k] = mean(DATA[DATA$interval == (k-1)*5 , 'steps'], na.rm = TRUE);
-	}
 	
-	avg_by_interval[is.nan(avg_by_interval)] = 0;
+	################################# DAYLY ACTIVITY PATTERN ...
+	
+	avg_by_interval = calc_avg_steps_per_interval(DATA);
 
 	interval_ids = days[[1]]$interval;
 	# Plotting average number of steps per interval, calculated across all days
@@ -29,6 +30,9 @@ run_proc <- function() {
 
 	max_interval_id = interval_ids[which.max(avg_by_interval)];
 	print( sprintf("Interval with biggest average number of steps: %d",max_interval_id) );
+
+
+	################################# DEALING WITH MISSING VALUES ...
 
 	#### finding number of missing values
 	num_missing = sum(is.na(DATA$steps));
@@ -49,25 +53,17 @@ run_proc <- function() {
 	print(sprintf("Mean steps per day : %f (after filling missing values)", mean(steps_per_day)));
 	print(sprintf("Median steps per day : %f (after filling missing values)", median(steps_per_day)));
 
-	weekend_days = c('Saturday', 'Sunday');
-	weekday = weekdays(as.Date(DATA$date));
-	weekday = factor(weekday %in% weekend_days, levels = c(TRUE, FALSE), labels = c('weekend','workday'));
-	DATA <- cbind(DATA, weekday );
+
+	################################# WEEKEND / WORKDAY  DIFFERENCE RESEARCH ...
+
+	# first of all - label our data with 'workday/weekend' labels	
+	DATA = label_wd_we(DATA);
 	
 	WD_DATA = DATA[DATA$weekday == 'workday',];
 	WE_DATA = DATA[DATA$weekday == 'weekend',];
 	
-	wd_avg_by_interval = vector(mode = 'numeric', length=length(days[[1]]$interval) );
-	for (k in 1:length(wd_avg_by_interval)) {
-		wd_avg_by_interval[k] = mean(WD_DATA[DATA$interval == (k-1)*5 , 'steps'], na.rm = TRUE);
-	}
-	wd_avg_by_interval[is.nan(wd_avg_by_interval)] = 0;
-
-	we_avg_by_interval = vector(mode = 'numeric', length=length(days[[1]]$interval) );
-	for (k in 1:length(we_avg_by_interval)) {
-		we_avg_by_interval[k] = mean(WE_DATA[DATA$interval == (k-1)*5 , 'steps'], na.rm = TRUE);
-	}
-	we_avg_by_interval[is.nan(we_avg_by_interval)] = 0;
+	wd_avg_by_interval = calc_avg_steps_per_interval(WD_DATA);
+	we_avg_by_interval = calc_avg_steps_per_interval(WE_DATA);
 
 	# Plotting average number of steps per interval, calucalted separately accross workdays and weekends
 	windows();
@@ -86,3 +82,19 @@ steps_per_day_fun <- function (daydata) {
 	return( sum(steps, na.rm = TRUE) );
 }
 
+calc_avg_steps_per_interval <- function (DATA) {
+	days = DATA[DATA$date == DATA$date[1],]
+	avg_by_interval = vector(mode = 'numeric', length=length(days$interval) );
+	for (k in 1:length(avg_by_interval)) {
+		avg_by_interval[k] = mean(DATA[DATA$interval == (k-1)*5 , 'steps'], na.rm = TRUE);
+	}
+	avg_by_interval[is.nan(avg_by_interval)] = 0;
+	return (avg_by_interval);
+}
+
+label_wd_we <- function (DATA) {
+	weekend_days = c('Saturday', 'Sunday');
+	weekday = weekdays(as.Date(DATA$date));
+	weekday = factor(weekday %in% weekend_days, levels = c(TRUE, FALSE), labels = c('weekend','workday'));
+	OUT_DATA <- cbind(DATA, weekday );	
+}
